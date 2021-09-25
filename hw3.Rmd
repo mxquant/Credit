@@ -1,0 +1,277 @@
+---
+title: "Credit Markets HW3"
+author: "Minqi Tan, Shao-Chun Chung, Petrus Handojo"
+date: "10/19/2020"
+output: pdf_document
+latex_engine: xelatex
+
+header-includes:
+- \usepackage{amssymb, amsmath, amsthm}
+- \usepackage{tabu}
+- \newcommand{\E}{\mathbb{E}}
+- \newcommand{\var}{{\rm Var}}
+- \newcommand{\cov}{{\rm Cov}}
+- \newcommand{\N}{\mathcal{N}}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Problem 7 (Default and Duration)
+
+## a) Which signs of a and b do you expect?
+
+We can expect the sign of b to be negative because of the empirically negative correlation between interest rates and default rate. Since a nagative default intensity implies arbitrage, we would always expect a positive lambda. Therefore, we would expect a positive intercept a.
+
+## b) Write down the corporate bond price assuming
+
+### i) recovery of market value
+
+Assume $\tau$ is the default time, and $\tau$ is the time before default, then
+
+$$p^{d}(\tau,1) = (1-l)p^{d}(\tau-,1)$$
+
+If multiple defaults are possible, then
+
+$$p^{d}(0,1)=e^{-(r+l\lambda)}$$
+
+$$=e^{-(r+l(a+br))}$$
+
+### ii) recovery of Treasury
+
+$$p^{d}(0,T)=p(0,T)R + l*p(0,T)Q(\tau>T)$$
+$$p^{d}(0,1)=e^{-r}R + l*e^{-r}e^{-\lambda}$$
+$$=e^{-r}R + l*e^{-(b+1)r-a}$$
+
+## c) Calculate the corresponding sensitivity of the corporate bond for the models in (b).
+
+### i) 
+
+$$D=-\frac{\partial p^{d}(0,1)}{\partial r}/p^{d}(0,1)$$
+$$=(bl+1)p^{d}(0,1)/p^{d}(0,1)$$
+$$=bl+1$$
+
+### ii)
+
+$$\frac{\partial p^{d}(0,1)}{\partial r}=-e^{-r}R-le^{-(b+1)r-a}(b+1)  => d$$
+$$D=-d/p^{d}(0,1)$$
+
+$$D=1+\frac{ble^{-(b+1)r-a}}{e^{-r}R+le^{-(b+1)r-a}}$$
+
+## d) 
+
+The sensitivity of a corporate bond is smaller than that of a treasury bond with the same maturity. Since the Macauley duration of both bonds are the same, but the yield of the corporate bond is higher, which makes the modified duration or sensitivity of the corporate bond lower (Modified D = Macauley/(1+y)). From $y^{d}=y+\lambda$, we can see that $\lambda$ is the parameter that drives the results.
+
+## e)
+
+As mentioned in d), the Macauley duration of both bonds are the same. Macauley duration is the present value weighted average time needed to receive the bond payments. Since both are zero coupon bonds, all weight is put on the principal payment at maturity, and because both bonds have the same maturity, they should have the same Macauley duration.
+
+
+# Problem 8
+
+## a) Suppose that the fee leg is paid continuously. What is the implied risk-neutral default intensity of XYZ?
+
+Since we assumed constant intensity and zero risk-free rate, the implied risk-neutral default intensity can be computed using the results from the simple model shown below: 
+$$S = \lambda l$$
+
+```{r}
+R <- 0.4
+r <- 0
+S <- 100/10000
+
+#a
+lambda <- S/(1-R)
+```
+Default intensity $\lambda$ : `r lambda`.
+
+
+## b) Calculate the corresponding one-year survival and default probabilities.
+
+Given the default intensity $\lambda$, we can compute the one-year survival and default probabilities using the formulas:
+
+```{r}
+#b
+PDQ <- 1 - exp(-lambda*1) 
+PSQ <- 1-PDQ
+```
+
+$Q(\tau>T) = e^{-\lambda T} =$ `r PSQ`. 
+
+$Q(\tau \leq T) = 1 - e^{-\lambda T} =$ `r PDQ`.
+
+
+## c) Suppose that the 2y CDS spread is also 100bp and that you enter such a contract as the protection buyer. Assume further that in one year the 1y CDS spread will be 110bp if fees were paid continuously. What will be the value of your contract in one year if you pay your fees semi-annually?
+
+```{r}
+#c
+# value of fee leg at t=1
+S_0 <- 100
+S_1 <- 110
+delta <- 0.5 # semi-annual payments
+V_fee_1 <- delta*exp(-(r+lambda)*0.5) + delta*exp(-(r+lambda)*1)
+# value of CDS at t=1 is V_1^fee * (S_1 - S_0)
+value <- V_fee_1*(S_1 - S_0)
+```
+
+The value of the CDS contract with semi-annual fee payment, one year from now can be computed using the formula: 
+
+$V_1 = V_1^{prot} - S_0V_1^{fee} = S_1V_1^{fee} - S_0V_1^{fee}$
+
+$S_0$ and $S_1$ are given, and we need to compute $V_1^{fee}$ in order to get the value of the CDS. We can compute $V_1^{fee}$ by discounting the remaining fee payments to time $t=1$ as shown below, where $\delta= 0.5$ since payment is made semi-annually: 
+
+$V_1^{fee} = \delta e^{-(r+\lambda)\times0.5} + \delta e^{-(r+\lambda)\times1} =$ `r V_fee_1`.
+
+Thus the value of the CDS one year from now is `r value` bps.
+
+
+## d) Now, we consider a 1y CDS contract where fees are paid annually and the protection payment (if any) is made at the maturity of the CDS contract. What is the default intensity of the underlying if you observe a CDS spread of 110 bp?
+
+```{r}
+#d
+S_0 <- 110/10000
+T <- 1
+tosolve <- function(lambda) {
+  # value of CDS at t=0 is 0 
+  # value of CDS is the V_0^prot - S_0*V_0^fee
+  value <- (1-R)*(1-exp(-lambda*T)) - S_0*exp(-lambda*T)
+  return(abs(value))
+}
+
+lambda_1yr <- optimize(f=tosolve, interval=c(0,1))$minimum
+```
+
+The default intensity can be backed-out by equating the value of the protection leg and the value of the fee leg at time $t=0$: 
+\begin{align*}
+V_0^{prot} &= l\times E[e^{-\int_0^{\tau}r_udu}1_{\tau \leq T}] \\
+&= l\times \int_0^T E[\lambda e^{-\lambda s}]ds \\
+&= l\times(1-e^{-\lambda T})
+\end{align*}
+
+$$\hat V_0^{fee} = S_0\times p^d(0,T) = S_0 \times e^{-\lambda T}$$
+
+Solving the above equations for $\lambda$, we get $\lambda =$ `r lambda_1yr`.
+
+
+# Problem 9
+
+## a) For affine models, it is known that. Implement the functions A(t) and B(t).
+
+For CIR model,  
+
+$$A(t) = log((\frac{2\gamma e^{(\kappa+\gamma)t/2}}{2\gamma +(\kappa+\gamma)(e^{\gamma t}-1)})^{\frac{2\kappa\theta}{2\sigma^2}})$$
+$$B(t) = \frac{2(e^{\gamma t}-1)}{2\gamma + (\kappa+\gamma)(e^{\gamma t}-1) }$$
+
+```{r}
+r <- 0.01
+kappa <- 1
+theta <- 0.02
+sigma <- 0.15
+lambda0 <- 0.01
+
+gamma <- sqrt(kappa^2+2*sigma^2)
+
+A <- function(t){
+  exp_A <- ((2*gamma*exp((kappa+gamma)*t/2))/(2*gamma+(kappa+gamma)*
+                                                (exp(gamma*t)-1)))^(2*kappa*theta/sigma^2)
+  return (log(exp_A))
+}
+
+B <- function(t){
+  b <- (2*(exp(gamma*t)-1))/(2*gamma+(kappa+gamma)*(exp(gamma*t)-1))
+  return (b)
+}
+```
+
+
+## b) Calculate the spreads of zero-coupon bonds with maturities T = 1, ..., 10. Assume zero recovery, R = 0.
+
+```{r}
+lambda <- vector()
+spread <- vector()
+
+for (i in 1:10){
+  lambda[i] <- 1 - exp(A(i)-B(i)*lambda0)
+  spread[i] <- (1/exp(A(i)-B(i)*lambda0))^(1/i)-1
+}
+
+```
+
+The spreads (in bps) for maturity from 1 year to 10 years are 
+```{r}
+spread <- round(spread*10000)
+spread
+```
+
+
+## c) What do you observe when T → 0? Explain. What is different compared to them firm value model by Merton (1974)? 
+
+```{r}
+spread_0.001 <- (1/exp(A(0.001)-B(0.001)*lambda0))^(1/0.001)-1
+spread_0.001 <- round(spread_0.001*10000)
+
+cat("When T is 0.001, spread will be",spread_0.001,"bps.")
+```
+
+The result is different from using Merton model. When T is close to 0 in Merton model, spread will also be close to 0. Because the debt value will be close to its face value at that time, yield (spread) will be very small and neglectable.
+
+On the other hand, we can still get appropriate spread number when we use the affine model and properly measure the true default risk even when the time to maturity is very small. 
+
+
+## d) Compute the fair prices of defaultable coupon bonds with recovery of par and R = 0.5 for maturities T = 1, ..., 10. Assume that coupons of c = 0.02 are payed semi- annually. Please disregard accrued payments.
+```{r}
+# function to generate C(t)
+C <- function(i){
+  c <- ((-2*kappa*theta/sigma^2)*(kappa^2-gamma^2)*(exp(gamma*i)-1))/
+    (4*gamma+2*(kappa+gamma)*(exp(gamma*i)-1))
+  return (c)
+}
+
+# function to generate H(t)
+H <- function(i){
+  h <- (4*gamma^2*exp(gamma*i))/(2*gamma+(kappa+gamma)*(exp(gamma*i)-1))^2
+  return (h)
+}
+
+R <- 0.5 
+c <- 0.01
+
+s <- 0.05 # the "ds" part in integral
+
+# separate the price into 3 parts: notional, coupon, recovery
+notional <- vector()
+coupon <- vector()
+recovery <- vector()
+price <- vector()
+
+
+for (i in 1:10){
+  notional[i] <- exp(-r*i)*exp(A(i)-B(i)*lambda0)
+  
+  # sum up the current value of the cumulative coupons
+  temp <- 0
+  for (t in seq(0.5,i,0.5)){
+    temp <- temp + c*exp(-r*t)*(exp(A(t)-B(t)*lambda0))
+  }
+  coupon[i] <- temp
+  
+  # separate the time to maturity into many different time segmants
+  # and estimate the integral for recovery value
+  
+  temp2 <-  0
+  for (t in seq(s,i,s)){
+    temp2 <- temp2 + R*exp(-r*t)*(C(t)+H(t)*lambda0)*(exp(A(t)-B(t)*lambda0))*s
+  }
+  recovery[i] <- temp2
+}
+
+for (i in 1:10){
+  price[i] <- notional[i]+coupon[i]+recovery[i]
+}
+
+print("The prices for defaultable coupon bonds with maturity from 1 to 10 are: ")
+round(price,4)
+```
+
+
+

@@ -1,0 +1,320 @@
+---
+header-includes:
+- \usepackage{amssymb, amsmath, amsthm}
+- \usepackage{tabu}
+- \newcommand{\E}{\mathbb{E}}
+- \newcommand{\var}{{\rm Var}}
+- \newcommand{\cov}{{\rm Cov}}
+- \newcommand{\N}{\mathcal{N}}
+title: "Credit Markets PS2"
+author: "Minqi Tan, Andy Chung, Ricky Handojo"
+date: "10/12/2020"
+output: pdf_document
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Problem 2
+
+## a) Calculate the spot rates, r(1), r(2), and r(3).
+
+The spot rates for year 1, 2 and 3 can be computed by backing them out from the below equations that solve for the prices of the three bonds:
+
+$P_{1st\ Bond} = 99 =\frac{2}{1+r(1)} + \frac{100}{1+r(1)}$ \  
+
+$P_{2nd\ Bond} = 98 = \frac{2.5}{1+r(1)} + \frac{2.5}{(1+r(2))^2} + \frac{100}{(1+r(2))^2}$ \  
+
+$P_{3rd\ Bond} = 97.5 = \frac{3}{1+r(1)} + \frac{3}{(1+r(2))^2} + \frac{3}{(1+r(3))^3} + \frac{100}{(1+r(3))^3}$ \  
+
+```{r}
+r_1 <- (2+100)/99 - 1
+r_2 <- sqrt((2.5+100)/(98-2.5/(1+r_1)))-1
+r_3 <- ((3+100)/(97.5-3/(1+r_1)-3/(1+r_2)^2))^(1/3)-1
+cat('The spot rates are: r(1)=', r_1, ', r(2)=', r_2, ', r(3)=', r_3)
+```
+
+## b) What kind of term structure do you get (flat, normal, inverse)?
+
+We get a normal term structure with increasing spot rates in the long term. 
+
+## c) Calulate the fair price of the 4th bond. 
+
+The fair price of the bond is computed below:
+
+```{r}
+P_4 <- 4/(1+r_1) + 4/(1+r_2)^2 + 4/(1+r_3)^3 + 100/(1+r_3)^3
+```
+
+
+$P_{4th\ Bond} = \frac{4}{1+r(1)} + \frac{4}{(1+r(2))^2} + \frac{4}{(1+r(3))^3} + \frac{100}{(1+r(3))^3} =$ `r P_4`
+
+
+# Problem 3
+
+## a
+```{r}
+# calucate the spot rates for liquid bonds
+r1_liquid <- (101/99)-1
+r2_liquid <- (102/(98-2/(1+r1_liquid)))^0.5 - 1
+r3_liquid <- (102/(98.5-3/(1+r1_liquid)-3/(1+r2_liquid)^2))^(1/3) -1
+
+#calculate the spot rates for illiquid bonds
+r1_illiquid <- (101/98)-1
+r2_illiquid <- (102/(97-2/(1+r1_illiquid)))^0.5 - 1
+r3_illiquid <- (102/(96.5-3/(1+r1_illiquid)-3/(1+r2_illiquid)^2))^(1/3) -1
+
+liquid_r <- c(r1_liquid, r2_liquid, r3_liquid)
+illiquid_r <- c(r1_illiquid, r2_illiquid, r3_illiquid)
+
+output_3a <- matrix(c(liquid_r,illiquid_r), byrow = T, nrow = 2)
+rownames(output_3a) <- c("liquid", "illiquid")
+colnames(output_3a) <- c("1yr", "2yr", "3yr")
+
+print(output_3a)
+```
+
+
+## b
+
+As 3(a) shown, the spot rates of liquid bonds increases as the term goes longer, so the term structure is "normal".
+
+
+## c
+```{r}
+#calculate the prices for both liquid and illiquid bonds
+price_liquid <- 4/(1+r1_liquid) + 4/(1+r2_liquid)^2 + 104/(1+r3_liquid)^3
+price_illiquid <- 4/(1+r1_illiquid) + 4/(1+r2_illiquid)^2 + 104/(1+r3_illiquid)^3
+
+print(paste("The price of liqluid bond is", round(price_liquid,2)))
+print(paste("The price of illiqluid bond is ", round(price_illiquid,2)))
+
+```
+
+
+
+## d
+```{r}
+treasury_1 <- 0.01
+treasury_2 <- 0.02
+treasury_3 <- 0.025
+treasury <- c(treasury_1, treasury_2, treasury_3)
+liquid_y <- c(r1_liquid,r2_liquid,r3_liquid)
+illiquid_y <- c(r1_illiquid,r2_illiquid,r3_illiquid)
+
+# liquid component is the difference betweeen spot rates of liquid and illiquid bonds
+liquid_comp <- round((illiquid_y - liquid_y)*10000) 
+
+# credit component is the difference between spot rates of treasury and liquid bonds
+credit_comp <- round((liquid_y - treasury)*10000)
+
+output_3d <- matrix(c(liquid_comp,credit_comp), byrow = T, nrow = 2)
+rownames(output_3d) <- c("liquid component", "credit component")
+colnames(output_3d) <- c("1yr", "2yr", "3yr")
+
+print(output_3d)
+```
+
+# Problem 4
+
+## a
+```{r}
+face <- 100
+V0 <- 140
+sigma <- 0.2
+r <- 0
+maturity <- 9
+d1 <- (log(V0/face) + (r+0.5*sigma^2)*maturity)/(sigma*maturity^0.5)
+d2 <- d1 - sigma*maturity^0.5
+
+# using Merton model to solve current bond value
+D0 <- V0*pnorm(-d1) + face*exp(-r*maturity)*pnorm(d2)
+
+print(paste("Bond value is", round(D0,2), "million dollars"))
+```
+
+
+## b
+```{r}
+# calculate the yield of the bond and spread
+yield <- (face/D0)^(1/9) - 1
+spread <- round((yield - r)*10000)
+
+print(paste("Bond spread is", spread, "bps"))
+```
+
+
+## c
+```{r}
+# equity value is the difference between asset value and debt value
+E0 <- V0-D0
+
+print(paste("Current equity value is", round(E0,2), "million dollars"))
+```
+
+## d
+
+$$E_t = V_tN(d1) − Fe^{−r(T−t)}N(d2)$$
+
+By using Ito's lemma, we can get
+
+$$\frac{dE_t}{E_t} = \frac {1}{E_t}[\frac{\partial E_t}{\partial V_t}dV_t + \frac{1}{2}\frac{\partial^2 E_t}{\partial V_t^2} (dV_t)^2] =  \frac {1}{E_t}[\frac{\partial E_t}{\partial V_t}dV_t + \frac{1}{2}\frac{\partial^2 E_t}{\partial V_t^2} dt]$$
+
+The volatility is only the $dV_t$ part
+
+So, we can write
+
+$$\sigma_E dW_t = \frac{1}{E_t}\frac{\partial E_t}{\partial V_t}dV_t = \frac{1}{E_t}\frac{\partial E_t}{\partial V_t}V_t \sigma dW_t$$
+
+$$\sigma_E = \frac{V_t}{E_t}N(d1)\sigma$$
+
+We can apply the values to this formula
+
+```{r}
+sigma_e <- V0/E0*pnorm(d1)*sigma
+
+sigma_e
+```
+
+The volatility of equity is 42.98%, greater than the volatility of assets. The equity volatility is higher because the firm has relatively high leverage ratio (smaller portion of equity). When the equity portion is small, the same level of profit/loss will be distributed to smaller denominator, making the return more volatile, so the equity volatility would be high in this case
+
+
+## e
+```{r}
+# set maturity to be 0.1 year and calculate the yield and spread again
+maturity_new <- 0.1
+d1_new<- (log(V0/face) + (r+0.5*sigma^2)*maturity_new)/(sigma*maturity_new^0.5)
+d2_new <- d1_new - sigma*maturity_new^0.5
+D0_new <- V0*pnorm(-d1_new) + face*exp(-r*maturity_new)*pnorm(d2_new)
+E0_new <- V0*pnorm(d1_new) - face*exp(-r*maturity_new)*pnorm(d2_new)
+
+yield_new <- (face/D0_new)^(1/maturity_new) - 1
+spread_new <- round((yield_new-r)*10000)
+
+print(paste("When the maturity goes to 0, spread will be", spread_new, "bps"))
+
+```
+
+
+## f
+
+When it is close to maturity, the bond price will be really close to its face value and the yield will be low, making the spread to be low too. However, the default risk of the coporate bond is still the same when it is at maturity, but could not be catch with the spread calculated in this method. Therefore, there will be an issue that the spread could not capture the actual risk of the corporate bond when the time to maturity is close to 0 because the spread will be close to 0 at that time.
+
+
+# Problem 5
+
+## a) Calculate the risk-neutral probabilities of survival and default.
+
+Using E0 = (20m x (1-PD) + 0xPD) x exp(-rt), we can back out PSQ and PDQ.
+
+```{r message=FALSE, warning=FALSE}
+require(rootSolve)
+r=log(100/95)
+E0=18
+D=100
+t=1
+
+tosolve=function(x){  #x[1]=v0, x[2]=sig_v
+  F1 = x[1]*pnorm((log(x[1]/D) + (r+0.5*x[2]^2))/x[2]) - 
+    D*exp(-r*t)*pnorm((log(x[1]/D)+(r-0.5*x[2]^2))/x[2]) - E0
+  
+  F2 = 20*pnorm((log(x[1]/D)+(r-0.5*x[2]^2))/x[2])*exp(-r*t) - E0   #risk neutral equity value
+  c(F1=F1,F2=F2)
+}
+sol=multiroot(f=tosolve,start=(c(120,0.2)))$root
+
+v0=sol[1]
+sig=sol[2]
+d1=(log(v0/D) + (r+0.5*sig^2))/sig
+d2=d1-sig
+
+cat("Risk Neutral probability of survival is ", pnorm(d2)," and probability of default is ", pnorm(-d2))
+
+```
+
+
+## b) What is the current debt value?
+
+Current debt value is V0-E0, which is 
+```{r}
+cat(v0-E0,"million")
+
+#can check with  v0*pnorm(-d1)+95*pnorm(d2)
+```
+
+## c) Compute the current firm value and the firm firm values in both future scenarios.
+
+Using E0 = (20m x (1-PD) + 0xPD) x exp(-rt) = V0N(d1) - Dexp(-rt)N(d2), we can solve for V0.
+```{r}
+cat("Current firm value is ",v0,"million and future firm value in scenario 1 is 100+20=120 million,\n in scenario 2 is 100*0.6=60 million")
+```
+
+## d) What is the default-free interest rate for one year?
+```{r}
+cat("The risk-free rate is ", r)
+```
+
+## e) How big is the current spread between the treasury bond and the corporate bond?
+
+```{r}
+cat("The spread is",log(100/94.79169) - r)
+```
+
+# Problem 6
+
+## a) What is the risk-free interest rate?  
+
+The risk-free interest rate can be backed-out from the price of the treasury zero coupon bond and is computed to be `r -log(0.99)` %.
+
+## b) Calculate the yield and the spread of the corporate zero-coupon bond?
+
+Similarly, the yield of the corporate zero coupon bond can be backed-out from the price of the corporate zero coupon bond and is computed to be `r -log(0.96)` %. 
+
+The spread is the difference between the yield of the corporate and the treasury zero coupon bond and is computed to be `r -log(0.96) + log(0.99)` %.
+
+## c) What are the risk-neutral probabilities for the three scenarios?
+
+Prices of the three securities should be equivalent to the expected discounted payoff under the risk-neutral measure, and as such, the risk-neutral probabilities for the three scenarios can be computed by solving the three equations shown below: 
+
+$P_{treasury} = 0.99 = e^{-rT}(1\times q^{boom} + 1\times q^{stagnation} + 1\times q^{recession})$
+
+$P_{corporate} = 0.96 = e^{-rT}(1\times q^{boom} + 1\times q^{stagnation} + 0.5\times q^{recession})$
+
+$P_{stock} = 100 = e^{-rT}(120\times q^{boom} + 80\times q^{stagnation} + 0\times q^{recession})$
+
+```{r}
+q_recession <- (1-0.96/0.99)/0.5
+q_stagnation <- (120 - 120*q_recession - 100/0.99)/40
+q_boom <- 1 - q_recession - q_stagnation
+```
+
+Since we have T=1 year and three equations with three unknowns, we can solve for the probabilities: 
+
+$q^{boom}$ = `r q_boom`, $q^{stagnation}$ = `r q_stagnation` and $q^{recession}$ = `r q_recession`.
+
+## d) Assume that you hold the corporate bond. What credit derivative can eliminate the default risk from your position in the corporate bond? What is the payoff structure of this product in our one-period model?
+
+We can invest in the Credit Default Swap (CDS) to eliminate the default risk from my position in the corporate zero coupon bond. The payoff of the CDS in the one-period model is: 
+
+1. pay the spread arrear at maturity 
+
+2. receive $0.5 at t=1 if there is default, otherwise receive nothing.
+
+## e) Calculate the price of this security, i.e. the fair upfront payment. Assume that there are no running payments.
+
+```{r}
+S <- (0*(1-q_recession) + 0.5*q_recession)
+```
+
+The price of the CDS (the spread) can be computed by setting the fee leg equals to the protection leg as shown below: 
+
+$$e^{-rT}(0\times (1-q^{recession}) + L\times q^{recession}) = e^{-rT}S$$
+
+The spread of the CDS is computed to be `r S` %.
+
+## f) Compare the yield of the corporate bond with the upfront payment from (e). What do you realize?
+
+The spread of the CDS is approximately the same as the spread on the corporate zero coupon bond. This makes sense as the the combination of CDS and the corporate zero coupon bond has the same cashflow structure as a treasury zero coupon bond, and as such the CDS spread should roughly offset the spread on the corporate zero coupon bond.
+
+

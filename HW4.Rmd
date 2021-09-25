@@ -1,0 +1,224 @@
+---
+title: "Credit Markets HW4"
+author: "Minqi Tan, Shao-Chun Chung, Petrus Handojo"
+date: "10/25/2020"
+output: pdf_document
+latex_engine: xelatex
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Problem 10
+
+## a) Assuming risk free rate r is constant and it is the continuous rate:
+
+```{r}
+kappa=0.05
+theta=0.03
+sigma=0.1
+lambda0=0.02
+
+#gamma function
+gamma <- sqrt(kappa^2+2*sigma^2)
+
+#A(t) function
+A <- function(t){
+  exp_A <- ((2*gamma*exp((kappa+gamma)*t/2))/(2*gamma+(kappa+gamma)*(exp(gamma*t)-1)))^(2*kappa*theta/sigma^2)
+  return (log(exp_A))
+}
+
+#B(t) function
+B <- function(t){
+  b <- (2*(exp(gamma*t)-1))/(2*gamma+(kappa+gamma)*(exp(gamma*t)-1))
+  return (b)
+}
+
+#C(t) function
+C <- function(i){
+  c <- ((-2*kappa*theta/sigma^2)*(kappa^2-gamma^2)*(exp(gamma*i)-1))/(4*gamma+2*(kappa+gamma)*(exp(gamma*i)-1))
+  return (c)
+}
+
+#H(t) function
+H <- function(i){
+  h <- (4*gamma^2*exp(gamma*i))/(2*gamma+(kappa+gamma)*(exp(gamma*i)-1))^2
+  return (h)
+}
+
+#Continuous: PV of fee leg
+integrand1 = function(t){exp(-r*t)*exp(A(t)-B(t)*lambda0)}
+v0fee_cont = function(mat){integrate(integrand1,0,mat)$value}
+
+#PV of protection leg
+integrand2 = function(t){exp(-r*t)*(C(t)+H(t)*lambda0)*exp(A(t)-B(t)*lambda0)}
+v0prot = function(l,mat){l*integrate(integrand2,0,mat)$value}
+
+#discrete: PV of fee leg
+v0fee_disc = function(mat,dt){
+  t = seq(dt,mat,dt)
+  v = exp(-r*t)*exp(A(t)-B(t)*lambda0)*dt
+  sum(v)
+}
+
+
+```
+
+## b)
+```{r}
+r=0.01
+s0=numeric(10)
+for (i in 1:10){
+  s0[i]=v0prot(0.5,i)/v0fee_disc(i,0.25)
+}
+s0*10000
+```
+
+## c)
+```{r}
+r=0.05
+s=numeric(10)
+for (i in 1:10){
+  s[i]=v0prot(0.5,i)/v0fee_disc(i,0.25)
+}
+s*10000
+```
+
+## d)
+```{r}
+r=0.01
+s0=numeric(10)
+for (i in 1:10){
+  s0[i]=v0prot(0.5,i)/v0fee_cont(i)
+}
+s0*10000
+```
+
+# Question 11
+
+## a)
+
+```{r}
+rm(lambda0)
+s=c(13.9,16.4,20.5,24,30.5,36,40.2,44.1)/10000
+r=0.05
+l=0.6
+lambda=numeric(8)    #stores the lambda values in each period
+lambda[1]=s[1]/l
+
+vfee=numeric(8)      #stores present values of the fee leg in the i_th period
+t=seq(0.25,1,0.25)
+vfee[1]=sum(exp(-r*t)*exp(-lambda[1]*t)*0.25)
+
+vprot=numeric(8)     #stores present values of the protection leg in the i_th period
+vprot[1]=l*lambda[1]*integrate(function(x){exp(-r*x)*exp(-lambda[1]*x)},0,1)$value
+
+
+fair_spread=function(i,lambda_i){   #i represents period 0-1,1-2,...7-8 
+  (sum(vprot[1:(i-1)])+l*lambda_i*
+     integrate(function(x){exp(-r*x)*exp(-sum(lambda[1:(i-1)])-lambda_i*(x-i+1))},i-1,i)$value) / 
+    (sum(vfee[1:(i-1)])+sum(exp(-r*t)*exp(-lambda_i*t)*0.25))
+}
+
+```
+
+
+## b)
+
+```{r}
+
+for(i in 2:8){
+  t=seq(i-0.75,i,0.25)
+  
+  to_solve=function(x){
+     fair_spread(i,x) - s[i]   
+    }
+  lambda[i]=uniroot(to_solve,c(0,1))$root
+  
+  vfee[i]=sum(exp(-r*t)*exp(-lambda[i]*t)*0.25)
+  vprot[i]=l*lambda[i]*
+    integrate(function(x){exp(-r*x)*exp(-sum(lambda[1:(i-1)])-lambda[i]*(x-i+1))},i-1,i)$value
+}
+
+lambda
+```
+
+## c)
+
+```{r}
+g <- function(k,s){ sqrt(k^2+2*s^2)}
+
+C <- function(k,theta,s,t){
+  c <- ((-2*k*theta/s^2)*(k^2-g(k,s)^2)*(exp(g(k,s)*t)-1))/(4*g(k,s)+2*(k+g(k,s))*(exp(g(k,s)*t)-1))
+  return (c)
+}
+
+H <- function(k,s,t){
+  h <- (4*g(k,s)^2*exp(g(k,s)*t))/(2*g(k,s)+(k+g(k,s))*(exp(g(k,s)*t)-1))^2
+  return (h)
+}
+
+A <- function(k,theta,s,t){
+  a <- ((2*g(k,s)*exp((k+g(k,s))*t/2))/(2*g(k,s)+(k+g(k,s))*(exp(g(k,s)*t)-1)))^(2*k*theta/s^2)
+  return (a)
+}
+
+B <- function(k,s,t){
+  b <- (2*(exp(g(k,s)*t)-1))/(2*g(k,s)+(k+g(k,s))*(exp(g(k,s)*t)-1))
+  return (b)
+}
+
+v0fee = Vectorize(function(k,theta,sig,lambda0,mat){
+  t = seq(0.25,mat,0.25)
+  v = exp(-r*t)*exp(A(k,theta,sig,t)-B(k,sig,t)*lambda0)*0.25
+  sum(v)
+})
+
+#PV of protection leg
+integrand = function(mat){
+  exp(-r*mat)*(C(kappa,theta,sigma,mat)+H(kappa,sigma,mat)*lambda0)*exp(A(kappa,theta,sigma,mat)-B(kappa,sigma,mat)*lambda0)
+}
+v0prot = Vectorize(function(mat){l*integrate(integrand,0,mat)$value})
+
+
+fit=function(para){
+  kappa=para[1]
+  theta=para[2]
+  sigma=para[3]
+  lambda0=para[4]
+  t=1:8
+  
+  integrand = function(mat){
+    exp(-r*mat)*(C(kappa,theta,sigma,mat)+H(kappa,sigma,mat)*lambda0)*exp(A(kappa,theta,sigma,mat)-B(kappa,sigma,mat)*lambda0)
+  }
+  v0prot = Vectorize(function(mat){l*integrate(integrand,0,mat)$value})
+  
+  mse=mean((v0prot(t)/v0fee(kappa,theta,sigma,lambda0,t)-s)^2)
+  return(mse)
+}
+
+k=runif(100,0,3)  #randomize initial values
+th=runif(100,0,1)
+sig=runif(100,0,1)
+lamb=runif(100,0,0.01)
+sol=list(100)
+sse=numeric(100)
+for(i in 1:100){  
+  sol[[i]]=optim(c(k[i],th[i],sig[i],lamb[i]),fit)
+  sse[i]=sol[[i]]$value
+}
+
+results=sol[[which.min(sse)]]$par   #find the best fit from different initializtions
+kappa=results[1]
+theta=results[2]
+sigma=results[3]
+lambda0=results[4]
+t=1:8
+fitted_val=v0prot(t)/v0fee(kappa,theta,sigma,lambda0,t)
+
+plot(t,s,type="p")
+lines(t,fitted_val)
+```
+
