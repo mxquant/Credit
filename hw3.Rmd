@@ -1,7 +1,5 @@
 ---
 title: "Credit Markets HW3"
-author: "Minqi Tan, Shao-Chun Chung, Petrus Handojo"
-date: "10/19/2020"
 output: pdf_document
 latex_engine: xelatex
 
