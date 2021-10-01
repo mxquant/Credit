@@ -7,8 +7,6 @@ header-includes:
 - \newcommand{\cov}{{\rm Cov}}
 - \newcommand{\N}{\mathcal{N}}
 title: "Credit Markets PS2"
-author: "Minqi Tan, Andy Chung, Ricky Handojo"
-date: "10/12/2020"
 output: pdf_document
 
 ---
